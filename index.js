@@ -13,6 +13,7 @@ import {
   Canvas,
   Path,
   Skia,
+  ImageFormat,
   useCanvasRef,
   useImage,
   Image as SkiaImage
@@ -224,11 +225,11 @@ const SignatureView = forwardRef(
       const image = canvasRef.current?.makeImageSnapshot();
       if (image) {
         const format = imageType.includes("jpeg") || imageType.includes("jpg")
-          ? Skia.ImageFormat.JPEG
-          : Skia.ImageFormat.PNG;
+          ? ImageFormat.JPEG
+          : ImageFormat.PNG;
 
         const base64 = image.encodeToBase64(format, 100);
-        const mime = format === Skia.ImageFormat.JPEG ? "image/jpeg" : "image/png";
+        const mime = format === ImageFormat.JPEG ? "image/jpeg" : "image/png";
         const result = `data:${mime};base64,${base64}`;
 
         onOK(result);
