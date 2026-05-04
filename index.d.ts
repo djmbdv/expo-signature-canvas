@@ -1,7 +1,7 @@
 declare module "expo-signature-canvas" {
   import React from "react";
   import { StyleProp, ViewStyle } from "react-native";
-  
+
   // Enhanced type definitions with better error handling
 
   type ImageType = "image/png" | "image/jpeg" | "image/svg+xml";
@@ -74,9 +74,9 @@ declare module "expo-signature-canvas" {
     undo: () => void;
     redo: () => void;
     fromData: (pointGroups: any[], suppressClear?: boolean) => void;
-    /** Set dataURL without causing WebView reload - useful for restoring signatures */
+    /** Set dataURL directly without remounting the canvas */
     setDataURL: (url: string) => void;
-    /** Force reinitialize WebView - useful for bottom sheets/modals where WebView state is lost */
+    /** Force reinitialize the native canvas state after container remounts */
     reinitialize: () => void;
   };
 

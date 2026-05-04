@@ -5,12 +5,12 @@ Get up and running with `expo-signature-canvas` in minutes!
 ## 🚀 Installation
 
 ```bash
-# Install the package
-npm install expo-signature-canvas
+# Install the package and its required peers
+npm install expo-signature-canvas @shopify/react-native-skia expo-image
 
-# For React Native CLI projects, also install WebView
-npm install react-native-webview
-cd ios && pod install # iOS only
+# React and React Native must already exist in your app
+# For iOS React Native CLI projects
+cd ios && pod install
 ```
 
 ## 📱 Basic Example
@@ -120,11 +120,6 @@ export default function EnhancedSignatureApp() {
         confirmText={isLoading ? "Saving..." : "Save"}
         penColor="#0066cc"
         backgroundColor="rgba(255,255,255,0)"
-        // NEW: WebView customization
-        webviewProps={{
-          cacheEnabled: true,
-          androidLayerType: "hardware",
-        }}
         style={styles.signature}
       />
       
@@ -172,43 +167,38 @@ const styles = StyleSheet.create({
 ## 🔧 Common Configurations
 
 ### High Performance Setup
+
 ```jsx
 <SignatureCanvas
-  webviewProps={{
-    cacheEnabled: true,
-    androidLayerType: "hardware",
-    androidHardwareAccelerationDisabled: false,
-  }}
+  penColor="#111827"
+  minWidth={1}
+  maxWidth={3}
 />
 ```
 
 ### Low Memory Setup
+
 ```jsx
 <SignatureCanvas
-  webviewProps={{
-    cacheEnabled: false,
-    androidLayerType: "software", 
-    androidHardwareAccelerationDisabled: true,
-  }}
+  imageType="image/jpeg"
+  minWidth={1}
+  maxWidth={2}
 />
 ```
 
 ### Security Focused Setup
+
 ```jsx
 <SignatureCanvas
-  webviewProps={{
-    allowFileAccess: false,
-    allowFileAccessFromFileURLs: false,
-    mixedContentMode: "never",
-    allowsLinkPreview: false,
-  }}
+  backgroundColor="white"
+  onEmpty={() => console.log('Empty signature blocked')}
+  onOK={(value) => uploadSignature(value)}
 />
 ```
 
 ## 📖 Next Steps
 
 - [Read the full documentation](./README.md)
-- [Learn about WebView customization](./WEBVIEW_PROPS.md)
 - [Check out example apps](./example/)
 - [View TypeScript definitions](./index.d.ts)
 

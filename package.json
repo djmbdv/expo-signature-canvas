@@ -1,7 +1,7 @@
 {
   "name": "expo-signature-canvas",
-  "version": "5.0.3",
-  "description": "A performant, customizable React Native signature canvas with advanced error handling, WebView optimization, and TypeScript support for iOS, Android, and Expo",
+  "version": "5.0.4",
+  "description": "A performant, customizable React Native signature canvas with native Skia rendering and TypeScript support for iOS, Android, and Expo",
   "main": "index.js",
   "scripts": {
     "genlog": "conventional-changelog -p angular -i CHANGELOG.md -s",
@@ -22,7 +22,6 @@
     "expo",
     "typescript",
     "drawing",
-    "webview",
     "performance",
     "error-handling",
     "undo-redo",

@@ -20,14 +20,21 @@ A React Native component for capturing signatures or drawing on a canvas with a 
 ## Installation
 
 ```bash
-npm install --save expo-signature-canvas @shopify/react-native-skia
+npm install --save expo-signature-canvas @shopify/react-native-skia expo-image
 ```
 or
 ```bash
-yarn add expo-signature-canvas @shopify/react-native-skia
+yarn add expo-signature-canvas @shopify/react-native-skia expo-image
 ```
 
 **Note for Expo users:** Make sure to follow the `@shopify/react-native-skia` installation guide if you are using an older version of Expo.
+
+`react` and `react-native` remain required peer dependencies and must already be present in the host app.
+
+## Audit Notes
+
+The repository root is configured as a library-only package and omits peer installs during local npm operations.
+Run dependency audits inside the example apps under `example/` if you want to audit a full application tree.
 
 ## Basic Usage
 

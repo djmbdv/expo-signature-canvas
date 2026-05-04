@@ -1,5 +1,7 @@
 ## [5.0.2](https://github.com/YanYuanFE/react-native-signature-canvas/compare/v5.0.1...v5.0.2) (2025-12-28)
 
+> Historical note: older entries may mention WebView because previous major versions used a WebView-based implementation. The current library is native/Skia-based.
+
 
 ### Features
 
