@@ -1,83 +1,83 @@
-import React, {
+import {
   useState,
-  useEffect,
-  useMemo,
   useRef,
   forwardRef,
   useImperativeHandle,
   useCallback,
+  useMemo,
+  useEffect
 } from "react";
-import { View, StyleSheet, ActivityIndicator, Text } from "react-native";
+import { View, StyleSheet, PanResponder, Text, Pressable } from "react-native";
+import { Image } from "expo-image";
+import {
+  Canvas,
+  Path,
+  Skia,
+  useCanvasRef,
+  useImage,
+  Image as SkiaImage
+} from "@shopify/react-native-skia";
 
-import htmlContent from "./h5/html";
-import injectedSignaturePad from "./h5/js/signature_pad";
-import injectedApplication from "./h5/js/app";
-
-import { WebView } from "react-native-webview";
-
-// Constants for better maintainability
-const MESSAGE_TYPES = {
-  BEGIN: "BEGIN",
-  END: "END",
-  EMPTY: "EMPTY",
-  CLEAR: "CLEAR",
-  UNDO: "UNDO",
-  REDO: "REDO",
-  DRAW: "DRAW",
-  ERASE: "ERASE",
-  CHANGE_PEN: "CHANGE_PEN",
-  CHANGE_PEN_SIZE: "CHANGE_PEN_SIZE"
-};
-
-const styles = StyleSheet.create({
-  webBg: {
+const defaultStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
+    borderRadius: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
+  },
+  canvasContainer: {
+    flex: 1,
+    position: "relative",
+  },
+  canvas: {
+    flex: 1,
     width: "100%",
     backgroundColor: "transparent",
-    flex: 1,
   },
-  loadingOverlayContainer: {
+  absoluteImage: {
     position: "absolute",
     top: 0,
-    bottom: 0,
     left: 0,
     right: 0,
+    bottom: 0,
+  },
+  footer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    justifyContent: "center",
+    padding: 10,
+  },
+  button: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: "#f9f9f9",
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: "#dcdcdc",
+  },
+  buttonText: {
+    color: "#333",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  description: {
+    color: "#c3c3c3",
+    fontSize: 12,
+    textAlign: "center",
   },
 });
-
-const getParamForInjection = (param) => {
-  switch (typeof param) {
-    case "string":
-      return `'${param}'`
-    case "object":
-      return JSON.stringify(param)
-    default:
-      return param
-  }
-}
 
 const SignatureView = forwardRef(
   (
     {
-      androidHardwareAccelerationDisabled = false,
-      autoClear = false,
-      backgroundColor = "",
-      bgHeight = 0,
-      bgWidth = 0,
-      bgSrc = null,
-      clearText = "Clear",
-      confirmText = "Confirm",
-      customHtml = null,
-      dataURL = "",
-      descriptionText = "Sign above",
-      dotSize = null,
-      imageType = "",
-      minWidth = 0.5,
-      maxWidth = 2.5,
-      minDistance = 5,
-      nestedScrollEnabled = false,
-      showsVerticalScrollIndicator = true,
+      backgroundColor = "transparent",
+      penColor = "black",
+      minWidth = 1,
+      maxWidth = 3,
       onOK = () => { },
       onEmpty = () => { },
       onClear = () => { },
@@ -86,367 +86,305 @@ const SignatureView = forwardRef(
       onDraw = () => { },
       onErase = () => { },
       onGetData = () => { },
-      onChangePenColor = () => { },
-      onChangePenSize = () => { },
       onBegin = () => { },
       onEnd = () => { },
       onLoadEnd = () => { },
-      onError = () => { },
-      overlayHeight = 0,
-      overlayWidth = 0,
-      overlaySrc = null,
-      penColor = "",
-      rotated = false,
       style = null,
-      scrollable = false,
-      trimWhitespace = false,
+      imageType = "image/png",
+
+      // Legacy UI & Web Props
+      autoClear = false,
+      clearText = "Clear",
+      confirmText = "Confirm",
+      descriptionText = "Sign above",
       webStyle = "",
-      webviewContainerStyle = null,
-      androidLayerType = "hardware",
-      webviewProps = {},
+      dataURL = "",
+      bgSrc = null,
+      bgWidth = null,
+      bgHeight = null,
+      overlaySrc = null,
+      overlayWidth = null,
+      overlayHeight = null,
     },
     ref
   ) => {
-    const [loading, setLoading] = useState(true);
-    const [hasError, setHasError] = useState(false);
-    const [retryCount, setRetryCount] = useState(0);
-    // Key to force WebView remount when needed (e.g., after content process termination)
-    const [webViewKey, setWebViewKey] = useState(0);
-    const maxRetries = 3;
-    const webViewRef = useRef();
-    // Store dataURL for injection - updates when dataURL prop changes
-    const currentDataURLRef = useRef(dataURL);
+    const canvasRef = useCanvasRef();
 
-    // Update ref when dataURL prop changes
+    const [paths, setPaths] = useState([]);
+    const [redoPaths, setRedoPaths] = useState([]);
+    const [currentPoints, setCurrentPoints] = useState([]);
+
+    const [isErasing, setIsErasing] = useState(false);
+    const [currentPenColor, setCurrentPenColor] = useState(penColor);
+    const [currentPenSize, setCurrentPenSize] = useState((minWidth + maxWidth) / 2);
+
+    // Legacy CSS detection hacks for backward compatibility
+    const hideFooter = useMemo(() => {
+      const wStyle = webStyle.toLowerCase().replace(/\s+/g, '');
+      return wStyle.includes('.m-signature-pad--footer{display:none');
+    }, [webStyle]);
+
+    const removeBorder = useMemo(() => {
+      const wStyle = webStyle.toLowerCase().replace(/\s+/g, '');
+      return wStyle.includes('border:none') || wStyle.includes('box-shadow:none');
+    }, [webStyle]);
+
+    // Canvas layout state for background rendering
+    const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+
+    // Load background image natively in Skia
+    const skiaBgImage = useImage(bgSrc);
+
+    // Load dataURL image natively in Skia
+    const [skiaDataImage, setSkiaDataImage] = useState(null);
     useEffect(() => {
-      currentDataURLRef.current = dataURL;
+      if (dataURL) {
+        try {
+          const b64 = dataURL.split(',')[1] || dataURL;
+          const data = Skia.Data.fromBase64(b64);
+          const img = Skia.Image.MakeImageFromEncoded(data);
+          setSkiaDataImage(img);
+        } catch (error) {
+          console.warn("Failed to decode dataURL for Skia:", error);
+        }
+      } else {
+        setSkiaDataImage(null);
+      }
     }, [dataURL]);
 
-    // Split source generation for better performance
-    // Include webViewKey to regenerate script when WebView needs remounting
-    const injectedScript = useMemo(() => {
-      let script = injectedSignaturePad + injectedApplication;
-      script = script.replace(/<%autoClear%>/g, autoClear);
-      script = script.replace(/<%trimWhitespace%>/g, trimWhitespace);
-      script = script.replace(/<%imageType%>/g, imageType || "image/png");
-      // Use currentDataURLRef to get the latest dataURL value
-      script = script.replace(/<%dataURL%>/g, currentDataURLRef.current || "");
-      script = script.replace(/<%penColor%>/g, penColor || "black");
-      script = script.replace(/<%backgroundColor%>/g, backgroundColor || "rgba(255,255,255,0)");
-      script = script.replace(/<%dotSize%>/g, dotSize || "null");
-      script = script.replace(/<%minWidth%>/g, minWidth || 0.5);
-      script = script.replace(/<%maxWidth%>/g, maxWidth || 2.5);
-      script = script.replace(/<%minDistance%>/g, minDistance || 5);
-      script = script.replace(/<%orientation%>/g, rotated || false);
-      return script;
-    }, [autoClear, trimWhitespace, imageType, penColor, backgroundColor, dotSize, minWidth, maxWidth, minDistance, rotated, webViewKey]);
-
-    const source = useMemo(() => {
-      const htmlContentValue = customHtml || htmlContent;
-      let html = htmlContentValue(injectedScript);
-      html = html.replace(/<%bgWidth%>/g, bgWidth || 0);
-      html = html.replace(/<%bgHeight%>/g, bgHeight || 0);
-      html = html.replace(/<%bgSrc%>/g, bgSrc || "null");
-      html = html.replace(/<%overlayWidth%>/g, overlayWidth || 0);
-      html = html.replace(/<%overlayHeight%>/g, overlayHeight || 0);
-      html = html.replace(/<%overlaySrc%>/g, overlaySrc || "null");
-      html = html.replace(/<%style%>/g, webStyle || "");
-      html = html.replace(/<%description%>/g, descriptionText || "Sign above");
-      html = html.replace(/<%confirm%>/g, confirmText || "Confirm");
-      html = html.replace(/<%clear%>/g, clearText || "Clear");
-      html = html.replace(/<%orientation%>/g, rotated || false);
-
-      return { html };
-    }, [injectedScript, customHtml, bgWidth, bgHeight, bgSrc, overlayWidth, overlayHeight, overlaySrc, webStyle, descriptionText, confirmText, clearText, rotated]);
-
-    // Handle dataURL changes dynamically without reloading WebView
-    const prevDataURLRef = useRef(dataURL);
-
+    // Lifecycle: onLoadEnd equivalent
     useEffect(() => {
-      // Skip if dataURL hasn't changed or WebView isn't ready
-      if (prevDataURLRef.current === dataURL || !webViewRef.current || loading) {
-        return;
-      }
-
-      prevDataURLRef.current = dataURL;
-
-      // Update dataURL in WebView without full reload
-      if (dataURL) {
-        const script = `
-          dataURL = '${dataURL}';
-          if (signaturePad && signaturePad.isEmpty()) {
-            signaturePad.fromDataURL(dataURL);
-          }
-          true;
-        `;
-        try {
-          webViewRef.current.injectJavaScript(script);
-        } catch (error) {
-          console.warn("Failed to update dataURL:", error);
-        }
-      }
-    }, [dataURL, loading]);
-
-    const isJson = (str) => {
-      try {
-        JSON.parse(str);
-      } catch (e) {
-        return false;
-      }
-      return true;
-    };
-
-    // Enhanced message handling with error handling
-    const getSignature = useCallback((e) => {
-      if (!e?.nativeEvent?.data) {
-        console.warn("Invalid message received from WebView");
-        return;
-      }
-
-      const data = e.nativeEvent.data;
-
-      try {
-        switch (data) {
-          case MESSAGE_TYPES.BEGIN:
-            onBegin();
-            break;
-          case MESSAGE_TYPES.END:
-            onEnd();
-            break;
-          case MESSAGE_TYPES.EMPTY:
-            onEmpty();
-            break;
-          case MESSAGE_TYPES.CLEAR:
-            onClear();
-            break;
-          case MESSAGE_TYPES.UNDO:
-            onUndo();
-            break;
-          case MESSAGE_TYPES.REDO:
-            onRedo();
-            break;
-          case MESSAGE_TYPES.DRAW:
-            onDraw();
-            break;
-          case MESSAGE_TYPES.ERASE:
-            onErase();
-            break;
-          case MESSAGE_TYPES.CHANGE_PEN:
-            onChangePenColor();
-            break;
-          case MESSAGE_TYPES.CHANGE_PEN_SIZE:
-            onChangePenSize();
-            break;
-          default:
-            if (isJson(data)) {
-              onGetData(data);
-            } else if (typeof data === "string" && data.startsWith("data:")) {
-              onOK(data);
-            } else {
-              console.warn("Unknown message type:", data);
-            }
-        }
-      } catch (error) {
-        console.error("Error handling WebView message:", error);
-      }
-    }, [onBegin, onEnd, onEmpty, onClear, onUndo, onRedo, onDraw, onErase, onChangePenColor, onChangePenSize, onGetData, onOK]);
-
-    // Enhanced WebView method execution with error handling
-    const executeWebViewMethod = useCallback((method, params = []) => {
-      if (!webViewRef.current) {
-        console.warn(`WebView ref is null when calling ${method}`);
-        return;
-      }
-
-      try {
-        const script = params.length > 0
-          ? `${method}(${params.map(getParamForInjection).join(',')});true;`
-          : `${method}();true;`;
-        webViewRef.current.injectJavaScript(script);
-      } catch (error) {
-        console.error(`Error executing WebView method ${method}:`, error);
-      }
+      onLoadEnd();
     }, []);
+
+    const createSmoothPath = useCallback((points) => {
+      const path = Skia.Path.Make();
+      if (points.length === 0) return path;
+      if (points.length === 1) {
+        path.moveTo(points[0].x, points[0].y);
+        path.lineTo(points[0].x + 0.1, points[0].y + 0.1);
+        return path;
+      }
+
+      path.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length - 1; i++) {
+        const xMid = (points[i].x + points[i + 1].x) / 2;
+        const yMid = (points[i].y + points[i + 1].y) / 2;
+        path.quadTo(points[i].x, points[i].y, xMid, yMid);
+      }
+      path.lineTo(points[points.length - 1].x, points[points.length - 1].y);
+      return path;
+    }, []);
+
+    const activePath = useMemo(() => {
+      return createSmoothPath(currentPoints);
+    }, [currentPoints, createSmoothPath]);
+
+    const panResponder = useRef(
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (evt) => {
+          onBegin();
+          const { locationX, locationY } = evt.nativeEvent;
+          setCurrentPoints([{ x: locationX, y: locationY }]);
+        },
+        onPanResponderMove: (evt) => {
+          const { locationX, locationY } = evt.nativeEvent;
+          setCurrentPoints((prev) => [...prev, { x: locationX, y: locationY }]);
+        },
+        onPanResponderRelease: () => {
+          onEnd();
+          setCurrentPoints((prevPoints) => {
+            if (prevPoints.length > 0) {
+              const newPathObj = {
+                path: createSmoothPath(prevPoints),
+                color: isErasing ? "transparent" : currentPenColor,
+                size: currentPenSize,
+                isEraser: isErasing,
+              };
+              setPaths((prev) => [...prev, newPathObj]);
+              setRedoPaths([]);
+            }
+            return [];
+          });
+
+          if (isErasing) onErase();
+          else onDraw();
+        },
+      })
+    ).current;
+
+    const performReadSignature = useCallback(() => {
+      if (paths.length === 0 && currentPoints.length === 0 && !dataURL) {
+        onEmpty();
+        return;
+      }
+
+      const image = canvasRef.current?.makeImageSnapshot();
+      if (image) {
+        const format = imageType.includes("jpeg") || imageType.includes("jpg")
+          ? Skia.ImageFormat.JPEG
+          : Skia.ImageFormat.PNG;
+
+        const base64 = image.encodeToBase64(format, 100);
+        const mime = format === Skia.ImageFormat.JPEG ? "image/jpeg" : "image/png";
+        const result = `data:${mime};base64,${base64}`;
+
+        onOK(result);
+
+        if (autoClear) {
+          performClearSignature();
+        }
+      }
+    }, [paths, currentPoints, dataURL, imageType, autoClear, onOK, onEmpty]);
+
+    const performClearSignature = useCallback(() => {
+      setPaths([]);
+      setRedoPaths([]);
+      setCurrentPoints([]);
+      onClear();
+    }, [onClear]);
 
     useImperativeHandle(
       ref,
       () => ({
-        readSignature: () => executeWebViewMethod('readSignature'),
-        clearSignature: () => executeWebViewMethod('clearSignature'),
-        undo: () => executeWebViewMethod('undo'),
-        redo: () => executeWebViewMethod('redo'),
-        draw: () => executeWebViewMethod('draw'),
-        erase: () => executeWebViewMethod('erase'),
+        readSignature: performReadSignature,
+        clearSignature: performClearSignature,
+        undo: () => {
+          setPaths((prev) => {
+            if (prev.length === 0) return prev;
+            const newPaths = [...prev];
+            const popped = newPaths.pop();
+            setRedoPaths((r) => [...r, popped]);
+            return newPaths;
+          });
+          onUndo();
+        },
+        redo: () => {
+          setRedoPaths((prev) => {
+            if (prev.length === 0) return prev;
+            const newRedo = [...prev];
+            const popped = newRedo.pop();
+            setPaths((p) => [...p, popped]);
+            return newRedo;
+          });
+          onRedo();
+        },
+        draw: () => setIsErasing(false),
+        erase: () => setIsErasing(true),
         changePenColor: (color) => {
-          if (typeof color !== 'string') {
-            console.warn('changePenColor: color must be a string');
-            return;
-          }
-          executeWebViewMethod('changePenColor', [color]);
+          setCurrentPenColor(color);
+          setIsErasing(false);
         },
-        changePenSize: (minW, maxW) => {
-          if (typeof minW !== 'number' || typeof maxW !== 'number') {
-            console.warn('changePenSize: minW and maxW must be numbers');
-            return;
-          }
-          executeWebViewMethod('changePenSize', [minW, maxW]);
+        changePenSize: (minW, maxW) => setCurrentPenSize((minW + maxW) / 2),
+        getData: () => {
+          const data = JSON.stringify(paths.map((p, i) => ({ id: i, color: p.color, size: p.size })));
+          onGetData(data);
         },
-        getData: () => executeWebViewMethod('getData'),
         fromData: (pointGroups) => {
-          if (!pointGroups) {
-            console.warn('fromData: pointGroups must be an array');
-            return;
-          }
-          executeWebViewMethod('fromData', [pointGroups, false]);
+          console.warn("fromData is currently limited in the Skia native implementation.");
         },
-        // New method to set dataURL without causing WebView reload
         setDataURL: (url) => {
-          if (typeof url !== 'string') {
-            console.warn('setDataURL: url must be a string');
-            return;
-          }
-          if (!webViewRef.current) {
-            console.warn('WebView ref is null when calling setDataURL');
-            return;
-          }
-          const script = `
-            dataURL = '${url}';
-            if (signaturePad) {
-              signaturePad.clear();
-              if (dataURL) {
-                signaturePad.fromDataURL(dataURL);
-              }
-            }
-            true;
-          `;
-          try {
-            webViewRef.current.injectJavaScript(script);
-          } catch (error) {
-            console.error('Error executing setDataURL:', error);
-          }
+          console.warn("setDataURL relies on web canvas features. Use dataURL prop instead.");
         },
-        // Force reinitialize WebView - useful for bottom sheets/modals where WebView state is lost
-        reinitialize: () => {
-          setLoading(true);
-          setHasError(false);
-          setWebViewKey(prev => prev + 1);
-        },
+        reinitialize: () => { },
       }),
-      [executeWebViewMethod]
+      [paths, currentPoints, currentPenColor, currentPenSize, isErasing, performReadSignature, performClearSignature, onUndo, onRedo, onGetData]
     );
 
-    const renderError = useCallback(({ nativeEvent }) => {
-      console.error("WebView error: ", nativeEvent);
-      setHasError(true);
-
-      // Call user-provided error handler
-      try {
-        onError(new Error(`WebView error: ${nativeEvent.description || nativeEvent.code}`));
-      } catch (err) {
-        console.warn('Error in onError callback:', err);
-      }
-
-      // Attempt to recover from error with retry logic
-      if (webViewRef.current && nativeEvent.code !== -999 && retryCount < maxRetries) {
-        setTimeout(() => {
-          try {
-            setRetryCount(prev => prev + 1);
-            webViewRef.current.reload();
-            setHasError(false);
-          } catch (error) {
-            console.error("Failed to reload WebView after error:", error);
-          }
-        }, Math.min(1000 * Math.pow(2, retryCount), 5000)); // Exponential backoff
-      }
-    }, [onError, retryCount, maxRetries]);
-
-    // Handle iOS WebView content process termination (WKWebView can be killed when app is backgrounded)
-    // This is crucial for bottom sheets and modals where the component stays mounted but WebView is killed
-    const handleContentProcessDidTerminate = useCallback(() => {
-      console.warn("WebView content process terminated, reinitializing...");
-      setLoading(true);
-      setHasError(false);
-      // Increment key to force WebView remount with fresh JavaScript context
-      setWebViewKey(prev => prev + 1);
-    }, []);
-
-    const handleLoadEnd = useCallback(() => {
-      setLoading(false);
-      setHasError(false);
-      setRetryCount(0);
-
-      try {
-        onLoadEnd();
-      } catch (error) {
-        console.warn('Error in onLoadEnd callback:', error);
-      }
-    }, [onLoadEnd]);
-
-    // Performance monitoring
-    const handleLoadStart = useCallback(() => {
-      setLoading(true);
-    }, []);
-
-    const handleLoadProgress = useCallback(({ nativeEvent }) => {
-      // Optional: Add progress monitoring
-      if (nativeEvent.progress === 1) {
-        setLoading(false);
-      }
-    }, []);
-
     return (
-      <View style={[styles.webBg, style]}>
-        <WebView
-          // Key for forcing remount when WebView needs reinitialization
-          key={`signature-webview-${webViewKey}`}
-          // Core functionality props (cannot be overridden)
-          ref={webViewRef}
-          source={source}
-          onMessage={getSignature}
-          onError={renderError}
-          onLoadEnd={handleLoadEnd}
-          onLoadStart={handleLoadStart}
-          onLoadProgress={handleLoadProgress}
-          // Handle iOS WKWebView content process termination (crucial for bottom sheets/modals)
-          onContentProcessDidTerminate={handleContentProcessDidTerminate}
-          javaScriptEnabled={true}
-          useWebKit={true}
-          // Default component props (can be overridden by webviewProps)
-          bounces={false}
-          style={[{ flex: 1 }, webviewContainerStyle]}
-          scrollEnabled={scrollable}
-          androidLayerType={androidLayerType}
-          androidHardwareAccelerationDisabled={
-            androidHardwareAccelerationDisabled
-          }
-          nestedScrollEnabled={nestedScrollEnabled}
-          showsVerticalScrollIndicator={showsVerticalScrollIndicator}
-          // Default performance optimizations
-          cacheEnabled={true}
-          allowsInlineMediaPlayback={false}
-          mediaPlaybackRequiresUserAction={true}
-          allowsBackForwardNavigationGestures={false}
-          // Default security enhancements
-          allowsLinkPreview={false}
-          allowFileAccess={false}
-          allowFileAccessFromFileURLs={false}
-          allowUniversalAccessFromFileURLs={false}
-          mixedContentMode="never"
-          originWhitelist={['*']}
-          // Default error recovery
-          startInLoadingState={true}
-          // User-provided WebView props (can override defaults but not core functionality)
-          {...webviewProps}
-        />
-        {(loading || hasError) && (
-          <View style={styles.loadingOverlayContainer}>
-            {hasError ? (
-              <Text style={{ color: '#ff0000', textAlign: 'center', padding: 10 }}>
-                Error loading signature pad{retryCount > 0 ? ` (Retry ${retryCount}/${maxRetries})` : ''}
-              </Text>
-            ) : (
-              <ActivityIndicator color={"#007AFF"} size="small" />
+      <View
+        style={[
+          defaultStyles.container,
+          removeBorder && { borderWidth: 0, shadowOpacity: 0, elevation: 0, borderRadius: 0 },
+          style
+        ]}
+      >
+        <View
+          style={defaultStyles.canvasContainer}
+          {...panResponder.panHandlers}
+          onLayout={(e) => setCanvasSize({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}
+        >
+          {/* Canvas handles background, dataURL and new strokes so they all export together natively */}
+          <Canvas style={[defaultStyles.canvas, { backgroundColor }]} ref={canvasRef}>
+            {/* Draw Background Image inside Canvas */}
+            {skiaBgImage && canvasSize.width > 0 && (
+              <SkiaImage
+                image={skiaBgImage}
+                x={0}
+                y={0}
+                width={canvasSize.width}
+                height={canvasSize.height}
+                fit="cover"
+              />
             )}
+
+            {/* Draw previously saved dataURL inside Canvas */}
+            {skiaDataImage && canvasSize.width > 0 && (
+              <SkiaImage
+                image={skiaDataImage}
+                x={0}
+                y={0}
+                width={canvasSize.width}
+                height={canvasSize.height}
+                fit="contain"
+              />
+            )}
+
+            {paths.map((p, index) => (
+              <Path
+                key={index}
+                path={p.path}
+                color={p.color}
+                style="stroke"
+                strokeWidth={p.size}
+                strokeCap="round"
+                strokeJoin="round"
+                blendMode={p.isEraser ? "clear" : "srcOver"}
+              />
+            ))}
+
+            {currentPoints.length > 0 && (
+              <Path
+                path={activePath}
+                color={isErasing ? "transparent" : currentPenColor}
+                style="stroke"
+                strokeWidth={currentPenSize}
+                strokeCap="round"
+                strokeJoin="round"
+                blendMode={isErasing ? "clear" : "srcOver"}
+              />
+            )}
+          </Canvas>
+
+          {/* Overlay Image Prop */}
+          {overlaySrc && (
+            <Image
+              source={{ uri: overlaySrc }}
+              style={[defaultStyles.absoluteImage, { width: overlayWidth || "100%", height: overlayHeight || "100%" }]}
+              contentFit="cover"
+              pointerEvents="none"
+            />
+          )}
+        </View>
+
+        {/* Legacy Footer UI */}
+        {!hideFooter && (
+          <View style={defaultStyles.footer}>
+            <Pressable
+              style={({ pressed }) => [defaultStyles.button, { opacity: pressed ? 0.5 : 1 }]}
+              onPress={performClearSignature}
+            >
+              <Text style={defaultStyles.buttonText}>{clearText}</Text>
+            </Pressable>
+            <Text style={defaultStyles.description}>{descriptionText}</Text>
+            <Pressable
+              style={({ pressed }) => [defaultStyles.button, { opacity: pressed ? 0.5 : 1 }]}
+              onPress={performReadSignature}
+            >
+              <Text style={defaultStyles.buttonText}>{confirmText}</Text>
+            </Pressable>
           </View>
         )}
       </View>

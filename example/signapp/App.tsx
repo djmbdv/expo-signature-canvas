@@ -7,12 +7,8 @@
 
 import React, { useState } from 'react';
 import {
-  Image,
-  SafeAreaView,
-  ScrollView,
   StatusBar,
   StyleSheet,
-  Text,
   useColorScheme,
   View,
 } from 'react-native';
@@ -20,7 +16,9 @@ import {
 import {
   Colors,
 } from 'react-native/Libraries/NewAppScreen';
-import SignatureScreen from 'react-native-signature-canvas';
+import SignatureScreen from 'expo-signature-canvas';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
 
 
 
@@ -50,7 +48,7 @@ function App(): React.JSX.Element {
         barStyle={isDarkMode ? 'light-content' : 'dark-content'}
         backgroundColor={backgroundStyle.backgroundColor}
       />
-      
+
       <SignatureScreen
         onOK={setSignature}
         onEmpty={() => console.log('onEmpty')}
@@ -60,7 +58,7 @@ function App(): React.JSX.Element {
       />
       <View style={styles.preview}>
         {signature && (
-          <Image style={styles.previewImage} source={{uri: signature}} />
+          <Image style={styles.previewImage} source={{ uri: signature }} contentFit="contain" />
         )}
       </View>
     </SafeAreaView>
@@ -94,7 +92,6 @@ const styles = StyleSheet.create({
   previewImage: {
     width: 335,
     height: 50,
-    resizeMode: 'contain',
   },
 });
 

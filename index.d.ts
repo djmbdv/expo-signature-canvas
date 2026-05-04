@@ -1,8 +1,7 @@
-declare module "react-native-signature-canvas" {
+declare module "expo-signature-canvas" {
   import React from "react";
   import { StyleProp, ViewStyle } from "react-native";
-  import { WebViewProps } from "react-native-webview";
-
+  
   // Enhanced type definitions with better error handling
 
   type ImageType = "image/png" | "image/jpeg" | "image/svg+xml";
@@ -61,9 +60,7 @@ declare module "react-native-signature-canvas" {
     scrollable?: boolean;
     trimWhitespace?: boolean;
     webStyle?: string;
-    webviewContainerStyle?: StyleProp<ViewStyle>;
     androidLayerType?: "none" | "software" | "hardware";
-    webviewProps?: Partial<WebViewProps>;
   };
 
   export type SignatureViewRef = {

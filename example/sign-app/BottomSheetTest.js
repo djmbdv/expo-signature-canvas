@@ -1,6 +1,7 @@
 import { useRef, useState, useCallback, useMemo } from 'react';
-import { StyleSheet, Text, View, Button, Image, Alert } from 'react-native';
-import SignatureCanvas from 'react-native-signature-canvas';
+import { StyleSheet, Text, View, Button, Alert } from 'react-native';
+import { Image } from 'expo-image';
+import SignatureCanvas from 'expo-signature-canvas';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -164,7 +165,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   signatureContainer: {
-    
+
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,

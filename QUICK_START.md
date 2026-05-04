@@ -1,12 +1,12 @@
 # Quick Start Guide
 
-Get up and running with `react-native-signature-canvas` in minutes!
+Get up and running with `expo-signature-canvas` in minutes!
 
 ## 🚀 Installation
 
 ```bash
 # Install the package
-npm install react-native-signature-canvas
+npm install expo-signature-canvas
 
 # For React Native CLI projects, also install WebView
 npm install react-native-webview
@@ -18,7 +18,7 @@ cd ios && pod install # iOS only
 ```jsx
 import React, { useRef, useState } from 'react';
 import { View, Button, StyleSheet } from 'react-native';
-import SignatureCanvas from 'react-native-signature-canvas';
+import SignatureCanvas from 'expo-signature-canvas';
 
 export default function App() {
   const ref = useRef();
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
 ```jsx
 import React, { useRef, useState } from 'react';
 import { View, Button, StyleSheet, Alert } from 'react-native';
-import SignatureCanvas from 'react-native-signature-canvas';
+import SignatureCanvas from 'expo-signature-canvas';
 
 export default function EnhancedSignatureApp() {
   const ref = useRef();
@@ -215,5 +215,5 @@ const styles = StyleSheet.create({
 ## 🆘 Need Help?
 
 - [Check troubleshooting guide](./README.md#troubleshooting)
-- [View common issues](https://github.com/YanYuanFE/react-native-signature-canvas/issues)
-- [Ask questions in discussions](https://github.com/YanYuanFE/react-native-signature-canvas/discussions)
+- [View common issues](https://github.com/YanYuanFE/expo-signature-canvas/issues)
+- [Ask questions in discussions](https://github.com/YanYuanFE/expo-signature-canvas/discussions)

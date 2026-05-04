@@ -1,38 +1,52 @@
-import React from 'react';
-import { StyleSheet, Text, View, Image } from 'react-native';
-import SignatureScreen from 'react-native-signature-canvas';
+import React, { useRef, useState } from 'react';
+import { StyleSheet, Text, View, Button } from 'react-native';
+import { Image } from 'expo-image';
+import SignatureScreen from 'expo-signature-canvas';
 
-export default class App extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { signature: null };
-  }
+export default function App() {
+  const [signature, setSignature] = useState(null);
+  const ref = useRef();
 
-  handleSignature = signature => {
+  const handleSignature = signature => {
     console.log(signature);
-    this.setState({ signature });
+    setSignature(signature);
   };
 
-  handleEmpty = () => {
+  const handleEmpty = () => {
     console.log('Empty');
-  }
+  };
 
-  render() {
-    return (
-      <View style={{ flex: 1 }}>
-        <View style={styles.preview}>
-          {this.state.signature ? (
-            <Image
-              resizeMode={"contain"}
-              style={{ width: 335, height: 114 }}
-              source={{ uri: this.state.signature }}
-            />
-          ) : null}
-        </View>
-        <SignatureScreen onOK={this.handleSignature} onEmpty={this.handleEmpty} autoClear={true} />
+  const handleClear = () => {
+    setSignature(null);
+  };
+
+  return (
+    <View style={{ flex: 1 }}>
+      <View style={styles.preview}>
+        {signature ? (
+          <Image
+            contentFit="contain"
+            style={{ width: 335, height: 114 }}
+            source={{ uri: signature }}
+          />
+        ) : null}
       </View>
-    );
-  }
+      <View style={{ flex: 1 }}>
+        <SignatureScreen 
+          ref={ref}
+          onOK={handleSignature} 
+          onEmpty={handleEmpty} 
+          onClear={handleClear}
+          backgroundColor="white"
+        />
+      </View>
+      <View style={styles.row}>
+        <Button title="Save" onPress={() => ref.current?.readSignature()} />
+        <Button title="Clear" onPress={() => ref.current?.clearSignature()} />
+        <Button title="Undo" onPress={() => ref.current?.undo()} />
+      </View>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -55,5 +69,11 @@ const styles = StyleSheet.create({
     width: 120,
     textAlign: "center",
     marginTop: 10
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    padding: 10,
+    backgroundColor: '#eee'
   }
 });
