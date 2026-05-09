@@ -302,8 +302,8 @@ const SignatureView = forwardRef(
             return {
               path: createSmoothPath(points),
               points: points,
-              color: group.color || currentPenColor,
-              size: group.size || currentPenSize,
+              color: group.color ?? currentPenColor,
+              size: group.size ?? currentPenSize,
               isEraser: group.color === "transparent",
             };
           });
