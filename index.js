@@ -120,14 +120,12 @@ const SignatureView = forwardRef(
     const [currentPenSize, setCurrentPenSize] = useState((minWidth + maxWidth) / 2);
 
     // Legacy CSS detection hacks for backward compatibility
-    const hideFooter = useMemo(() => {
+    const { hideFooter, removeBorder } = useMemo(() => {
       const wStyle = webStyle.toLowerCase().replace(/\s+/g, '');
-      return wStyle.includes('.m-signature-pad--footer{display:none');
-    }, [webStyle]);
-
-    const removeBorder = useMemo(() => {
-      const wStyle = webStyle.toLowerCase().replace(/\s+/g, '');
-      return wStyle.includes('border:none') || wStyle.includes('box-shadow:none');
+      return {
+        hideFooter: wStyle.includes('.m-signature-pad--footer{display:none'),
+        removeBorder: wStyle.includes('border:none') || wStyle.includes('box-shadow:none')
+      };
     }, [webStyle]);
 
     // Canvas layout state for background rendering
