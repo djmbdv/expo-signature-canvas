@@ -1,6 +1,6 @@
 {
   "name": "expo-signature-canvas",
-  "version": "5.0.4",
+  "version": "5.0.5",
   "description": "A performant, customizable React Native signature canvas with native Skia rendering and TypeScript support for iOS, Android, and Expo",
   "main": "index.js",
   "scripts": {
@@ -36,10 +36,14 @@
   "peerDependencies": {
     "@shopify/react-native-skia": "^2.6.2",
     "expo-image": ">=1.0.0",
-    "react": "^19.2.6",
-    "react-native": "^0.85.3"
+    "react": ">=19.1.0",
+    "react-native": ">=0.81.0",
+    "expo": ">=54.0.0"
   },
   "devDependencies": {
     "@babel/runtime": "^7.29.2"
+  },
+  "engines": {
+    "node": ">=20.19.0"
   }
 }
