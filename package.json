@@ -47,8 +47,5 @@
     "expo": {
       "optional": true
     }
-  },
-  "devDependencies": {
-    "@babel/runtime": "^7.29.2"
   }
 }
