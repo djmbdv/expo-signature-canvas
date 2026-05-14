@@ -1,4 +1,4 @@
-# React Native Signature Canvas
+# Expo Signature Canvas
 
 [![License](https://img.shields.io/npm/l/expo-signature-canvas.svg)](https://www.npmjs.com/package/expo-signature-canvas)
 [![Version](https://img.shields.io/npm/v/expo-signature-canvas)](https://www.npmjs.com/package/expo-signature-canvas)
