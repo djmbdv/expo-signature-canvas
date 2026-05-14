@@ -17,6 +17,9 @@
     "@shopify/react-native-skia": "^2.6.2",
     "react-native-web": "~0.21.0"
   },
+  "overrides": {
+    "postcss": "8.5.10"
+  },
   "devDependencies": {
     "@babel/core": "^7.20.0"
   },
