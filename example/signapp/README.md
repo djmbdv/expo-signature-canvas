@@ -1,5 +1,11 @@
 This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
 
+## Repository Note
+
+This example app depends on the local workspace package via `file:../..` so it always exercises the in-repo version of `expo-signature-canvas` while developing this library.
+
+If you copy this example outside the repository, replace that dependency with a published npm version before installing.
+
 # Getting Started
 
 > **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.

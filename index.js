@@ -19,6 +19,16 @@ import {
   Image as SkiaImage
 } from "@shopify/react-native-skia";
 
+const shouldKeepPoint = (points, x, y, minDistanceSquared) => {
+  if (points.length === 0) return true;
+
+  const lastPoint = points[points.length - 1];
+  const deltaX = x - lastPoint.x;
+  const deltaY = y - lastPoint.y;
+
+  return (deltaX * deltaX) + (deltaY * deltaY) >= minDistanceSquared;
+};
+
 const defaultStyles = StyleSheet.create({
   container: {
     flex: 1,
@@ -79,7 +89,8 @@ const SignatureView = forwardRef(
       penColor = "black",
       minWidth = 1,
       maxWidth = 3,
-      onOK = () => { },
+      minDistance = 2,
+      onOK = () => {},
       onEmpty = () => { },
       onClear = () => { },
       onUndo = () => { },
@@ -113,11 +124,17 @@ const SignatureView = forwardRef(
 
     const [paths, setPaths] = useState([]);
     const [redoPaths, setRedoPaths] = useState([]);
-    const [currentPoints, setCurrentPoints] = useState([]);
+    const currentPointsRef = useRef([]);
+    const [activePointCount, setActivePointCount] = useState(0);
 
     const [isErasing, setIsErasing] = useState(false);
     const [currentPenColor, setCurrentPenColor] = useState(penColor);
     const [currentPenSize, setCurrentPenSize] = useState((minWidth + maxWidth) / 2);
+    const minDistanceSafe = Math.max(0, minDistance);
+    const minDistanceSquared = minDistanceSafe * minDistanceSafe;
+    const isErasingRef = useRef(isErasing);
+    const currentPenColorRef = useRef(currentPenColor);
+    const currentPenSizeRef = useRef(currentPenSize);
 
     // Legacy CSS detection hacks for backward compatibility
     const { hideFooter, removeBorder } = useMemo(() => {
@@ -161,67 +178,104 @@ const SignatureView = forwardRef(
       onLoadEnd();
     }, []);
 
+    useEffect(() => {
+      isErasingRef.current = isErasing;
+    }, [isErasing]);
+
+    useEffect(() => {
+      currentPenColorRef.current = currentPenColor;
+    }, [currentPenColor]);
+
+    useEffect(() => {
+      currentPenSizeRef.current = currentPenSize;
+    }, [currentPenSize]);
+
     const createSmoothPath = useCallback((points) => {
+      const len = points.length;
       const path = Skia.Path.Make();
-      if (points.length === 0) return path;
-      if (points.length === 1) {
-        path.moveTo(points[0].x, points[0].y);
-        path.lineTo(points[0].x + 0.1, points[0].y + 0.1);
+      if (len === 0) return path;
+
+      const firstPoint = points[0];
+      path.moveTo(firstPoint.x, firstPoint.y);
+
+      if (len === 1) {
+        path.lineTo(firstPoint.x + 0.1, firstPoint.y + 0.1);
         return path;
       }
 
-      path.moveTo(points[0].x, points[0].y);
-      for (let i = 1; i < points.length - 1; i++) {
-        const xMid = (points[i].x + points[i + 1].x) / 2;
-        const yMid = (points[i].y + points[i + 1].y) / 2;
-        path.quadTo(points[i].x, points[i].y, xMid, yMid);
+      for (let i = 1; i < len - 1; i++) {
+        const currentPoint = points[i];
+        const nextPoint = points[i + 1];
+        const xMid = (currentPoint.x + nextPoint.x) * 0.5;
+        const yMid = (currentPoint.y + nextPoint.y) * 0.5;
+
+        path.quadTo(currentPoint.x, currentPoint.y, xMid, yMid);
       }
-      path.lineTo(points[points.length - 1].x, points[points.length - 1].y);
+
+      const lastPoint = points[len - 1];
+      path.lineTo(lastPoint.x, lastPoint.y);
       return path;
     }, []);
 
     const activePath = useMemo(() => {
-      return createSmoothPath(currentPoints);
-    }, [currentPoints, createSmoothPath]);
+      return createSmoothPath(currentPointsRef.current);
+    }, [activePointCount, createSmoothPath]);
 
-    const panResponder = useRef(
-      PanResponder.create({
+    const panResponder = useMemo(
+      () => PanResponder.create({
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: () => true,
         onPanResponderGrant: (evt) => {
           onBegin();
           const { locationX, locationY } = evt.nativeEvent;
-          setCurrentPoints([{ x: locationX, y: locationY }]);
+          currentPointsRef.current = [{ x: locationX, y: locationY }];
+          setActivePointCount(1);
         },
         onPanResponderMove: (evt) => {
           const { locationX, locationY } = evt.nativeEvent;
-          setCurrentPoints((prev) => [...prev, { x: locationX, y: locationY }]);
+          const points = currentPointsRef.current;
+          if (!shouldKeepPoint(points, locationX, locationY, minDistanceSquared)) return;
+
+          points.push({ x: locationX, y: locationY });
+          setActivePointCount(points.length);
         },
         onPanResponderRelease: () => {
           onEnd();
-          setCurrentPoints((prevPoints) => {
-            if (prevPoints.length > 0) {
-              const newPathObj = {
-                path: createSmoothPath(prevPoints),
-                points: prevPoints,
-                color: isErasing ? "transparent" : currentPenColor,
-                size: currentPenSize,
-                isEraser: isErasing,
-              };
-              setPaths((prev) => [...prev, newPathObj]);
-              setRedoPaths([]);
-            }
-            return [];
-          });
+          const points = currentPointsRef.current;
+          const wasErasing = isErasingRef.current;
 
-          if (isErasing) onErase();
+          if (points.length > 0) {
+            const newPathObj = {
+              path: createSmoothPath(points),
+              points,
+              color: wasErasing ? "transparent" : currentPenColorRef.current,
+              size: currentPenSizeRef.current,
+              isEraser: wasErasing,
+            };
+            setPaths((prev) => [...prev, newPathObj]);
+            setRedoPaths([]);
+          }
+
+          currentPointsRef.current = [];
+          setActivePointCount(0);
+
+          if (wasErasing) onErase();
           else onDraw();
         },
-      })
-    ).current;
+      }),
+      [createSmoothPath, minDistanceSquared, onBegin, onDraw, onEnd, onErase]
+    );
+
+    const performClearSignature = useCallback(() => {
+      setPaths([]);
+      setRedoPaths([]);
+      currentPointsRef.current = [];
+      setActivePointCount(0);
+      onClear();
+    }, [onClear]);
 
     const performReadSignature = useCallback(() => {
-      if (paths.length === 0 && currentPoints.length === 0 && !dataURL) {
+      if (paths.length === 0 && currentPointsRef.current.length === 0 && !dataURL) {
         onEmpty();
         return;
       }
@@ -242,14 +296,7 @@ const SignatureView = forwardRef(
           performClearSignature();
         }
       }
-    }, [paths, currentPoints, dataURL, imageType, autoClear, onOK, onEmpty]);
-
-    const performClearSignature = useCallback(() => {
-      setPaths([]);
-      setRedoPaths([]);
-      setCurrentPoints([]);
-      onClear();
-    }, [onClear]);
+    }, [paths, dataURL, imageType, autoClear, onOK, onEmpty, performClearSignature]);
 
     useImperativeHandle(
       ref,
@@ -318,7 +365,7 @@ const SignatureView = forwardRef(
         },
         reinitialize: () => { },
       }),
-      [paths, currentPoints, currentPenColor, currentPenSize, isErasing, performReadSignature, performClearSignature, onUndo, onRedo, onGetData, loadSkiaDataImage]
+        [paths, currentPenColor, currentPenSize, createSmoothPath, performReadSignature, performClearSignature, onUndo, onRedo, onGetData, loadSkiaDataImage]
     );
 
     return (
@@ -373,7 +420,7 @@ const SignatureView = forwardRef(
               />
             ))}
 
-            {currentPoints.length > 0 && (
+            {activePointCount > 0 && (
               <Path
                 path={activePath}
                 color={isErasing ? "transparent" : currentPenColor}
