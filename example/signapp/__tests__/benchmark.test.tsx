@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
-import SignatureScreen from '../../../index.js'; // Adjust path if needed
+import SignatureScreen from 'expo-signature-canvas';
 
 jest.mock('@shopify/react-native-skia', () => ({
   Canvas: 'Canvas',
