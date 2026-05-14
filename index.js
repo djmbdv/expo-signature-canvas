@@ -137,14 +137,12 @@ const SignatureView = forwardRef(
     const currentPenSizeRef = useRef(currentPenSize);
 
     // Legacy CSS detection hacks for backward compatibility
-    const hideFooter = useMemo(() => {
+    const { hideFooter, removeBorder } = useMemo(() => {
       const wStyle = webStyle.toLowerCase().replace(/\s+/g, '');
-      return wStyle.includes('.m-signature-pad--footer{display:none');
-    }, [webStyle]);
-
-    const removeBorder = useMemo(() => {
-      const wStyle = webStyle.toLowerCase().replace(/\s+/g, '');
-      return wStyle.includes('border:none') || wStyle.includes('box-shadow:none');
+      return {
+        hideFooter: wStyle.includes('.m-signature-pad--footer{display:none'),
+        removeBorder: wStyle.includes('border:none') || wStyle.includes('box-shadow:none')
+      };
     }, [webStyle]);
 
     // Canvas layout state for background rendering
@@ -155,10 +153,11 @@ const SignatureView = forwardRef(
 
     // Load dataURL image natively in Skia
     const [skiaDataImage, setSkiaDataImage] = useState(null);
-    useEffect(() => {
-      if (dataURL) {
+
+    const loadSkiaDataImage = useCallback((url) => {
+      if (url) {
         try {
-          const b64 = dataURL.split(',')[1] || dataURL;
+          const b64 = url.split(',')[1] || url;
           const data = Skia.Data.fromBase64(b64);
           const img = Skia.Image.MakeImageFromEncoded(data);
           setSkiaDataImage(img);
@@ -168,7 +167,11 @@ const SignatureView = forwardRef(
       } else {
         setSkiaDataImage(null);
       }
-    }, [dataURL]);
+    }, []);
+
+    useEffect(() => {
+      loadSkiaDataImage(dataURL);
+    }, [dataURL, loadSkiaDataImage]);
 
     // Lifecycle: onLoadEnd equivalent
     useEffect(() => {
@@ -244,6 +247,7 @@ const SignatureView = forwardRef(
           if (points.length > 0) {
             const newPathObj = {
               path: createSmoothPath(points),
+              points,
               color: wasErasing ? "transparent" : currentPenColorRef.current,
               size: currentPenSizeRef.current,
               isEraser: wasErasing,
@@ -327,18 +331,41 @@ const SignatureView = forwardRef(
         },
         changePenSize: (minW, maxW) => setCurrentPenSize((minW + maxW) / 2),
         getData: () => {
-          const data = JSON.stringify(paths.map((p, i) => ({ id: i, color: p.color, size: p.size })));
+          const data = JSON.stringify(paths.map((p, i) => ({
+            id: i,
+            color: p.color,
+            size: p.size,
+            points: p.points
+          })));
           onGetData(data);
         },
-        fromData: (pointGroups) => {
-          console.warn("fromData is currently limited in the Skia native implementation.");
+        fromData: (pointGroups, suppressClear = false) => {
+          if (!Array.isArray(pointGroups)) return;
+
+          const newPaths = pointGroups.map((group) => {
+            const points = group.points || [];
+            return {
+              path: createSmoothPath(points),
+              points: points,
+              color: group.color ?? currentPenColor,
+              size: group.size ?? currentPenSize,
+              isEraser: group.color === "transparent",
+            };
+          });
+
+          if (suppressClear) {
+            setPaths((prev) => [...prev, ...newPaths]);
+          } else {
+            setPaths(newPaths);
+          }
+          setRedoPaths([]);
         },
         setDataURL: (url) => {
-          console.warn("setDataURL relies on web canvas features. Use dataURL prop instead.");
+          loadSkiaDataImage(url);
         },
         reinitialize: () => { },
       }),
-      [paths, performReadSignature, performClearSignature, onUndo, onRedo, onGetData]
+        [paths, currentPenColor, currentPenSize, createSmoothPath, performReadSignature, performClearSignature, onUndo, onRedo, onGetData, loadSkiaDataImage]
     );
 
     return (
