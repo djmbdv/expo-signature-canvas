@@ -34,9 +34,12 @@
   },
   "homepage": "https://github.com/djmbdv/expo-signature-canvas#readme",
   "peerDependencies": {
-    "react": ">=16.8.0",
-    "react-native": ">=0.60.0",
-    "@shopify/react-native-skia": ">=0.1.0",
-    "expo-image": ">=1.0.0"
+    "@shopify/react-native-skia": "^2.6.2",
+    "expo-image": ">=1.0.0",
+    "react": "^19.2.6",
+    "react-native": "^0.85.3"
+  },
+  "devDependencies": {
+    "@babel/runtime": "^7.29.2"
   }
 }
