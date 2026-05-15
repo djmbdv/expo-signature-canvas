@@ -123,7 +123,7 @@ const SignatureView = forwardRef(
     const canvasRef = useCanvasRef();
 
     const [paths, setPaths] = useState([]);
-    const [redoPaths, setRedoPaths] = useState([]);
+    const [_redoPaths, setRedoPaths] = useState([]);
     const currentPointsRef = useRef([]);
     const [activePointCount, setActivePointCount] = useState(0);
 
