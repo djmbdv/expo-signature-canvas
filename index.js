@@ -18,6 +18,7 @@ import {
   useImage,
   Image as SkiaImage
 } from "@shopify/react-native-skia";
+import { createSmoothPath as createSmoothPathUtil } from "./utils";
 
 const shouldKeepPoint = (points, x, y, minDistanceSquared) => {
   if (points.length === 0) return true;
@@ -191,30 +192,7 @@ const SignatureView = forwardRef(
     }, [currentPenSize]);
 
     const createSmoothPath = useCallback((points) => {
-      const len = points.length;
-      const path = Skia.Path.Make();
-      if (len === 0) return path;
-
-      const firstPoint = points[0];
-      path.moveTo(firstPoint.x, firstPoint.y);
-
-      if (len === 1) {
-        path.lineTo(firstPoint.x + 0.1, firstPoint.y + 0.1);
-        return path;
-      }
-
-      for (let i = 1; i < len - 1; i++) {
-        const currentPoint = points[i];
-        const nextPoint = points[i + 1];
-        const xMid = (currentPoint.x + nextPoint.x) * 0.5;
-        const yMid = (currentPoint.y + nextPoint.y) * 0.5;
-
-        path.quadTo(currentPoint.x, currentPoint.y, xMid, yMid);
-      }
-
-      const lastPoint = points[len - 1];
-      path.lineTo(lastPoint.x, lastPoint.y);
-      return path;
+      return createSmoothPathUtil(Skia, points);
     }, []);
 
     const activePath = useMemo(() => {
